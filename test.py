@@ -1,52 +1,21 @@
-import requests
-import logging
 import os
+import logging
 
 
-
-def extract_image_urls(html_content):
-    START_STR = '<div class="separator"><a class="hoverZoomLink" href="'
-    END_STR = '"'
-    idx = html_content.find(START_STR)
-    image_urls = []
-    while idx != -1:
-        idx += len(START_STR)
-        end_idx = html_content.find(END_STR, idx)
-        image_url = html_content[idx:end_idx]
-        image_urls.append(image_url)
-        idx = html_content.find(START_STR, end_idx)
-    return image_urls
-
-
-def dowload_image(image_url, filename):
-    response = requests.get(image_url)
-    if response.status_code == 200:
-        with open(filename, "wb") as f:
-            f.write(response.content)
-        logging.info("Downloaded %s", filename)
-    else:
-        logging.error("Failed to download image from %s", image_url)
-
-
-def dowload_manga_chapter(manga_name, chapter_number, target_dir):
-    urls = f"https://w15.read-borutomanga.com/manga/{manga_name}-chapter-{chapter_number}/"
-    response = requests.get(urls)
-    if response.status_code != 200:
-        logging.error("Failed to retrieve data. Status code: %d", response.status_code)
-        return
-    html_content = response.text
-    image_urls = extract_image_urls(html_content)
-
-    for i, image_url in enumerate(image_urls):
-        dowload_image(image_url, os.path.join(target_dir, f"{manga_name}_{chapter_number:03d}_{i+1:02d}.jpg"))
-
+from mangasc.utils import dowload_manga_chapter, parse_manga_name
+from mangasc.lists import get_boruto_manga_list
 
 def main():
-    target_dir = os.path.join(".", "data", "boruto", "92")
-    os.makedirs(target_dir, exist_ok=True)
+    manga_list = get_boruto_manga_list()
+    
+    for manga_name, manga_url in manga_list.items():
+        logging.info("Manga: %s, URL: %s", manga_name, manga_url)
+        series_name, subtitle, chapter_number = parse_manga_name(manga_name)
 
-    dowload_manga_chapter("boruto", 92, target_dir)
+        target_dir = os.path.join(".", "data", f"{series_name}_{subtitle.replace(' ', '_')}", f"{chapter_number:03d}")
+        os.makedirs(target_dir, exist_ok=True)
 
+        dowload_manga_chapter(manga_url, target_dir, series_name, chapter_number)
 
 
 if __name__ == "__main__":
